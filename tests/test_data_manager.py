@@ -249,3 +249,91 @@ def test_get_dataset_summary():
 
     assert summary["total_records"] == 30
     assert summary["min_kwh"] <= summary["mean_kwh"] <= summary["max_kwh"]
+
+
+# =====================================================================
+# Error Handling Audit Tests
+# =====================================================================
+
+def test_load_data_corrupted_parser_error():
+    """Verify load_data raises ValueError on malformed rows and never silently skips them."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        corrupted_path = Path(tmp_dir) / "corrupted.csv"
+        # Write inconsistent number of columns (malformed row)
+        corrupted_path.write_text("date,usage_kwh\n2024-01-01,25.0\n2024-01-02,26.0,extra_column\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Corrupted or malformed CSV"):
+            load_data(corrupted_path)
+
+
+def test_load_data_invalid_date_format():
+    """Verify load_data raises ValueError on invalid date strings."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        bad_path = Path(tmp_dir) / "bad_dates.csv"
+        bad_path.write_text("date,usage_kwh\n2024/01/01,25.0\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="invalid date format"):
+            load_data(bad_path)
+
+
+def test_load_data_impossible_calendar_date():
+    """Verify load_data raises ValueError on non-existent calendar dates."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        bad_path = Path(tmp_dir) / "leap_error.csv"
+        bad_path.write_text("date,usage_kwh\n2023-02-29,25.0\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="non-existent calendar date"):
+            load_data(bad_path)
+
+
+def test_load_data_duplicate_dates():
+    """Verify load_data raises ValueError on duplicate dates rather than silently discarding them."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dup_path = Path(tmp_dir) / "duplicates.csv"
+        dup_path.write_text("date,usage_kwh\n2024-01-01,25.0\n2024-01-01,30.0\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="duplicate date records"):
+            load_data(dup_path)
+
+
+def test_load_data_text_usage():
+    """Verify load_data raises ValueError when usage contains text instead of numbers."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        bad_path = Path(tmp_dir) / "text_usage.csv"
+        bad_path.write_text("date,usage_kwh\n2024-01-01,twenty-five\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="non-numeric"):
+            load_data(bad_path)
+
+
+def test_load_data_nan_and_infinity_usage():
+    """Verify load_data raises ValueError when usage is NaN or infinity."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        nan_path = Path(tmp_dir) / "nan_usage.csv"
+        nan_path.write_text("date,usage_kwh\n2024-01-01,NaN\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="non-numeric, NaN, or missing"):
+            load_data(nan_path)
+
+        inf_path = Path(tmp_dir) / "inf_usage.csv"
+        inf_path.write_text("date,usage_kwh\n2024-01-01,inf\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="infinite values"):
+            load_data(inf_path)
+
+
+def test_load_data_negative_usage():
+    """Verify load_data raises ValueError when usage contains negative values."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        neg_path = Path(tmp_dir) / "neg_usage.csv"
+        neg_path.write_text("date,usage_kwh\n2024-01-01,-12.5\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="cannot contain negative values"):
+            load_data(neg_path)
+
+
+def test_validate_data_type_error():
+    """Verify validate_data raises TypeError when passed non-DataFrame."""
+    with pytest.raises(TypeError, match="Expected pandas DataFrame"):
+        validate_data({"date": ["2024-01-01"], "usage_kwh": [25.0]})
+

@@ -109,6 +109,13 @@ def validate_usage_value(value: Any) -> float:
 def validate_data(df: pd.DataFrame) -> bool:
     """Validate DataFrame integrity, required columns, and value domains.
 
+    Strictly checks:
+    - Expected DataFrame type and non-empty status.
+    - Presence of required 'date' and 'usage_kwh' columns.
+    - Valid ISO 8601 YYYY-MM-DD date formats and real calendar dates (no silent drops).
+    - Uniqueness of dates (rejecting duplicate date entries).
+    - Numeric validity of electricity consumption (rejects text, NaN, infinity, and negatives).
+
     Args:
         df: Input DataFrame to check.
 
@@ -117,7 +124,7 @@ def validate_data(df: pd.DataFrame) -> bool:
 
     Raises:
         TypeError: If input is not a pandas DataFrame.
-        ValueError: If required columns are missing, data is empty, or negative values exist.
+        ValueError: If validation criteria are violated.
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError(f"Expected pandas DataFrame, received {type(df).__name__}.")
@@ -131,16 +138,55 @@ def validate_data(df: pd.DataFrame) -> bool:
     if TARGET_COLUMN not in df.columns:
         raise ValueError(f"Missing required column: '{TARGET_COLUMN}'")
 
-    if df[TARGET_COLUMN].isnull().all():
-        raise ValueError(f"Target column '{TARGET_COLUMN}' contains only null values.")
+    if df[DATE_COLUMN].isnull().any():
+        raise ValueError(f"Dataset contains missing or null dates in '{DATE_COLUMN}'.")
 
-    # Validate non-negative usage
-    numeric_target = pd.to_numeric(df[TARGET_COLUMN], errors="coerce")
+    # Validate ISO date format YYYY-MM-DD
+    date_strs = df[DATE_COLUMN].astype(str).str.strip()
+    pattern_mask = date_strs.str.match(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
+    if not pattern_mask.all():
+        invalid_examples = date_strs[~pattern_mask].tolist()[:3]
+        raise ValueError(
+            f"Dataset contains invalid date format(s) in '{DATE_COLUMN}': {invalid_examples}. "
+            f"Dates must strictly follow ISO 8601 format YYYY-MM-DD (e.g. 2024-05-15)."
+        )
+
+    # Check for impossible calendar dates (e.g. 2023-02-29 or 2024-04-31)
+    parsed_dates = pd.to_datetime(date_strs, format="%Y-%m-%d", errors="coerce")
+    if parsed_dates.isnull().any():
+        bad_calendar_dates = date_strs[parsed_dates.isnull()].tolist()[:3]
+        raise ValueError(
+            f"Dataset contains non-existent calendar date(s) in '{DATE_COLUMN}': {bad_calendar_dates}."
+        )
+
+    # Check for duplicate dates
+    duplicate_mask = df.duplicated(subset=[DATE_COLUMN], keep=False)
+    if duplicate_mask.any():
+        dups = df.loc[duplicate_mask, DATE_COLUMN].unique().tolist()[:3]
+        raise ValueError(
+            f"Dataset contains duplicate date records: {dups}. "
+            f"Every date entry in the dataset must be unique."
+        )
+
+    # Validate usage values
+    raw_target = df[TARGET_COLUMN]
+    numeric_target = pd.to_numeric(raw_target, errors="coerce")
     if numeric_target.isnull().any():
-        raise ValueError("Dataset contains non-numeric or missing usage values.")
+        bad_vals = raw_target[numeric_target.isnull()].tolist()[:3]
+        raise ValueError(
+            f"Dataset contains non-numeric, NaN, or missing usage values in '{TARGET_COLUMN}': {bad_vals}."
+        )
+
+    if np.isinf(numeric_target).any():
+        raise ValueError(
+            f"Dataset contains infinite values in '{TARGET_COLUMN}'. Electricity usage must be finite."
+        )
 
     if (numeric_target < 0.0).any():
-        raise ValueError("Electricity consumption (usage_kwh) cannot contain negative values.")
+        neg_vals = numeric_target[numeric_target < 0.0].tolist()[:3]
+        raise ValueError(
+            f"Electricity consumption cannot contain negative values. Found: {neg_vals} kWh (expected >= 0.0)."
+        )
 
     return True
 
@@ -177,7 +223,9 @@ def create_or_init_csv(
         path.parent.mkdir(parents=True, exist_ok=True)
         empty_df.to_csv(path, index=False)
     except PermissionError as exc:
-        raise PermissionError(f"Permission denied while writing to '{path}': {exc}") from exc
+        raise PermissionError(
+            f"Permission denied while writing to '{path}': {exc}. Check directory write permissions."
+        ) from exc
 
     return empty_df
 
@@ -186,6 +234,7 @@ def load_data(file_path: Union[str, Path] = DEFAULT_DATA_PATH) -> pd.DataFrame:
     """Load daily electricity consumption dataset from a CSV file.
 
     Handles FileNotFoundError, PermissionError, empty files, and malformed rows gracefully.
+    Never silently discards malformed or corrupted records.
 
     Args:
         file_path: Path to the CSV file.
@@ -208,17 +257,25 @@ def load_data(file_path: Union[str, Path] = DEFAULT_DATA_PATH) -> pd.DataFrame:
         df = pd.read_csv(
             path,
             dtype={DATE_COLUMN: str},
-            on_bad_lines="skip",  # Skip malformed lines gracefully
+            on_bad_lines="error",  # Never silently discard malformed rows
         )
     except PermissionError as exc:
-        raise PermissionError(f"Permission denied reading '{path}': {exc}") from exc
+        raise PermissionError(
+            f"Permission denied reading '{path}': {exc}. Check file read permissions."
+        ) from exc
     except pd.errors.EmptyDataError as exc:
-        raise ValueError(f"The CSV file at '{path}' is empty.") from exc
+        raise ValueError(f"The CSV file at '{path}' is empty. At least one header and one record are required.") from exc
+    except pd.errors.ParserError as exc:
+        raise ValueError(
+            f"Corrupted or malformed CSV file at '{path}': {exc}.\n"
+            f"One or more rows have an unexpected number of delimiters or corrupted data. "
+            f"Please repair the CSV file or regenerate a clean demonstration dataset using Menu Option 5."
+        ) from exc
     except Exception as exc:
         raise ValueError(f"Failed to parse CSV file at '{path}': {exc}") from exc
 
     if df.empty:
-        raise ValueError(f"The CSV file at '{path}' contains no records.")
+        raise ValueError(f"The CSV file at '{path}' contains no records (empty dataset).")
 
     validate_data(df)
     return preprocess_data(df)
@@ -259,7 +316,11 @@ def save_data(
         path.parent.mkdir(parents=True, exist_ok=True)
         sorted_df.to_csv(path, index=False)
     except PermissionError as exc:
-        raise PermissionError(f"Permission denied writing to '{path}': {exc}") from exc
+        raise PermissionError(
+            f"Permission denied writing to '{path}': {exc}. Check file write permissions."
+        ) from exc
+    except OSError as exc:
+        raise IOError(f"OS error writing to '{path}': {exc}") from exc
 
     return path
 

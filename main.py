@@ -103,13 +103,13 @@ def display_menu() -> None:
 
 
 def ensure_dataset_exists(data_path: Path = DEFAULT_DATA_PATH) -> Optional[pd.DataFrame]:
-    """Check if the dataset exists, offering to generate sample data if missing.
+    """Check if the dataset exists, offering to generate sample data if missing or corrupted.
 
     Args:
         data_path: Path to usage CSV.
 
     Returns:
-        Loaded DataFrame, or None if user declines generation.
+        Loaded DataFrame, or None if user declines generation or recovery.
     """
     if not data_path.is_file():
         print(f"\n[WARNING] Dataset not found at: '{data_path}'.")
@@ -122,12 +122,39 @@ def ensure_dataset_exists(data_path: Path = DEFAULT_DATA_PATH) -> Optional[pd.Da
 
         print("\n[+] Generating demonstration synthetic dataset (730 daily records)...")
         print(f"    DISCLAIMER: {SYNTHETIC_DATA_DISCLAIMER}")
-        df = generate_synthetic_sample_data(output_path=data_path, allow_overwrite=True)
-        print(f"[SUCCESS] Sample dataset created with {len(df)} records at: {data_path}")
-        return df
+        try:
+            df = generate_synthetic_sample_data(output_path=data_path, allow_overwrite=True)
+            print(f"[SUCCESS] Sample dataset created with {len(df)} records at: {data_path}")
+            return df
+        except PermissionError as exc:
+            print(f"\n[ERROR] Permission denied creating dataset at '{data_path}': {exc}")
+            print("        Please check directory write permissions.")
+            return None
+        except Exception as exc:
+            print(f"\n[ERROR] Failed to generate sample dataset: {exc}")
+            return None
 
     try:
         return load_data(data_path)
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied reading dataset at '{data_path}': {exc}")
+        print("        Please ensure you have read access and the file is not locked.")
+        return None
+    except ValueError as exc:
+        print(f"\n[ERROR] Corrupted or invalid dataset: {exc}")
+        recover = confirm_action(
+            "Would you like to overwrite this corrupted dataset with a clean demonstration sample dataset?",
+            default=False,
+        )
+        if recover:
+            try:
+                print("\n[+] Regenerating demonstration synthetic dataset...")
+                df = generate_synthetic_sample_data(output_path=data_path, allow_overwrite=True)
+                print(f"[SUCCESS] Regenerated clean dataset with {len(df)} records at: {data_path}")
+                return df
+            except Exception as gen_exc:
+                print(f"[ERROR] Failed to regenerate dataset: {gen_exc}")
+        return None
     except Exception as exc:
         print(f"\n[ERROR] Failed to load dataset: {exc}")
         return None
@@ -161,11 +188,20 @@ def menu_view_records(data_path: Path = DEFAULT_DATA_PATH) -> None:
         records = view_all_records(df)
         print(f"\nDisplaying all {len(records)} records:")
     elif sub_choice == "3":
-        custom_limit = prompt_float("Enter number of recent records to view", min_val=1, default=20)
-        limit = int(custom_limit)
+        try:
+            custom_limit = prompt_float("Enter number of recent records to view", min_val=1, default=20)
+            limit = int(custom_limit)
+        except (KeyboardInterrupt, EOFError):
+            print("\n[INFO] Operation cancelled.")
+            return
+        records = view_all_records(df, limit=limit, tail=True)
+        print(f"\nDisplaying latest {len(records)} records:")
+    elif sub_choice in ("1", ""):
+        limit = 20
         records = view_all_records(df, limit=limit, tail=True)
         print(f"\nDisplaying latest {len(records)} records:")
     else:
+        print(f"\n[WARNING] Unrecognized option '{sub_choice}'. Defaulting to latest 20 records.")
         limit = 20
         records = view_all_records(df, limit=limit, tail=True)
         print(f"\nDisplaying latest {len(records)} records:")
@@ -220,6 +256,11 @@ def menu_add_record(data_path: Path = DEFAULT_DATA_PATH) -> None:
         save_data(updated_df, file_path=data_path, allow_overwrite=True)
         print(f"\n[SUCCESS] Successfully added record for {date_str} ({usage_val:.2f} kWh).")
         print(f"          Total records in dataset: {len(updated_df)}.")
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied saving to '{data_path}': {exc}")
+        print("        Please ensure the data file is not open in another program (e.g. Excel).")
+    except ValueError as exc:
+        print(f"\n[ERROR] Validation error: {exc}")
     except Exception as exc:
         print(f"\n[ERROR] Failed to save record: {exc}")
 
@@ -274,6 +315,11 @@ def menu_update_record(data_path: Path = DEFAULT_DATA_PATH) -> None:
         updated_df = update_record(df, date_str=date_str, new_usage_kwh=new_val)
         save_data(updated_df, file_path=data_path, allow_overwrite=True)
         print(f"\n[SUCCESS] Record for {date_str} successfully updated to {new_val:.2f} kWh.")
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied updating '{data_path}': {exc}")
+        print("        Please ensure the data file is not open in another program.")
+    except (KeyError, ValueError) as exc:
+        print(f"\n[ERROR] Record update failed: {exc}")
     except Exception as exc:
         print(f"\n[ERROR] Failed to update record: {exc}")
 
@@ -299,15 +345,23 @@ def menu_train_model(
     if df is None:
         return
 
-    if len(df) < 5:
-        print(f"\n[WARNING] Dataset contains only {len(df)} records. Minimum 5 records required.")
+    unique_dates = df[DATE_COLUMN].nunique() if DATE_COLUMN in df.columns else len(df)
+    if unique_dates < 5:
+        print(f"\n[WARNING] Dataset contains only {unique_dates} unique date(s). Minimum 5 records required.")
         generate_more = confirm_action(
             "Would you like to generate demonstration sample records?", default=True
         )
         if not generate_more:
-            print("[INFO] Training aborted.")
+            print("[INFO] Training aborted. At least 5 unique historical records are required.")
             return
-        df = generate_synthetic_sample_data(days=365, output_path=data_path, allow_overwrite=True)
+        try:
+            df = generate_synthetic_sample_data(days=365, output_path=data_path, allow_overwrite=True)
+        except PermissionError as exc:
+            print(f"[ERROR] Permission denied generating sample data: {exc}")
+            return
+        except Exception as exc:
+            print(f"[ERROR] Failed to generate sample data: {exc}")
+            return
 
     if model_path.is_file():
         retrain = confirm_action(
@@ -352,6 +406,11 @@ def menu_train_model(
 
         saved_file = predictor.save(model_path)
         print(f"\n[SUCCESS] Model successfully trained and serialized to: '{saved_file}'.")
+    except ValueError as exc:
+        print(f"\n[ERROR] Model training validation failed: {exc}")
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied saving model artifact: {exc}")
+        print(f"        Please check write permissions for directory: '{model_path.parent}'.")
     except Exception as exc:
         print(f"\n[ERROR] Model training failed: {exc}")
 
@@ -383,6 +442,23 @@ def menu_predict_future(
 
     try:
         predictor = ConsumptionPredictor.load(model_path)
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied accessing model file '{model_path}': {exc}")
+        return
+    except ValueError as exc:
+        print(f"\n[ERROR] Corrupted or invalid model file: {exc}")
+        retrain_corrupted = confirm_action(
+            "Would you like to retrain and replace the corrupted model now?", default=True
+        )
+        if retrain_corrupted:
+            menu_train_model(data_path=data_path, model_path=model_path)
+            try:
+                predictor = ConsumptionPredictor.load(model_path)
+            except Exception as reload_exc:
+                print(f"[ERROR] Failed to load retrained model: {reload_exc}")
+                return
+        else:
+            return
     except Exception as exc:
         print(f"\n[ERROR] Failed to load model artifact: {exc}")
         return
@@ -496,8 +572,10 @@ def menu_predict_future(
         print("  * Linear trend models do not capture weather fluctuations, cooling/heating peaks,")
         print("    or sudden demand shifts. Use as a baseline estimate only.")
 
-    except Exception as exc:
+    except (ValueError, TypeError, RuntimeError) as exc:
         print(f"\n[ERROR] Prediction failed: {exc}")
+    except Exception as exc:
+        print(f"\n[ERROR] Unexpected prediction failure: {exc}")
 
 
 def menu_view_model_evaluation(model_path: Path = DEFAULT_MODEL_PATH) -> None:
@@ -511,6 +589,13 @@ def menu_view_model_evaluation(model_path: Path = DEFAULT_MODEL_PATH) -> None:
 
     try:
         predictor = ConsumptionPredictor.load(model_path)
+    except PermissionError as exc:
+        print(f"\n[ERROR] Permission denied accessing model file '{model_path}': {exc}")
+        return
+    except ValueError as exc:
+        print(f"\n[ERROR] Corrupted model file: {exc}")
+        print("        Please retrain the model using Menu Option 5 ('Train ML model').")
+        return
     except Exception as exc:
         print(f"\n[ERROR] Failed to load model artifact: {exc}")
         return
@@ -583,25 +668,30 @@ def interactive_application_loop() -> None:
             pause_for_user()
             continue
 
-        # Dispatch valid menu options
-        if choice == "1":
-            menu_view_records()
-        elif choice == "2":
-            menu_add_record()
-        elif choice == "3":
-            menu_update_record()
-        elif choice == "4":
-            menu_view_statistics()
-        elif choice == "5":
-            menu_train_model()
-        elif choice == "6":
-            menu_predict_future()
-        elif choice == "7":
-            menu_view_model_evaluation()
-        elif choice == "8":
-            menu_exit()
-        else:
-            print(f"\n[ERROR] Invalid choice '{choice}'. Please select a valid number between 1 and 8.")
+        try:
+            # Dispatch valid menu options
+            if choice == "1":
+                menu_view_records()
+            elif choice == "2":
+                menu_add_record()
+            elif choice == "3":
+                menu_update_record()
+            elif choice == "4":
+                menu_view_statistics()
+            elif choice == "5":
+                menu_train_model()
+            elif choice == "6":
+                menu_predict_future()
+            elif choice == "7":
+                menu_view_model_evaluation()
+            elif choice == "8":
+                menu_exit()
+            else:
+                print(f"\n[ERROR] Invalid choice '{choice}'. Please select a valid number between 1 and 8.")
+        except (KeyboardInterrupt, EOFError):
+            print("\n\n[INFO] Operation interrupted by user. Returning to main menu.")
+        except Exception as exc:
+            print(f"\n[ERROR] An unexpected error occurred: {exc}")
 
         pause_for_user()
 

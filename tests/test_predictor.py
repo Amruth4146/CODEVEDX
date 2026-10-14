@@ -170,3 +170,80 @@ def test_negative_prediction_detection():
     # 100 days into the future: 50 - 5 * 100 = -450
     future_pred = predictor.predict_for_date("2024-05-01")
     assert future_pred < 0.0
+
+
+# =====================================================================
+# Error Handling Audit Tests for Predictor
+# =====================================================================
+
+def test_model_load_missing_file():
+    """Verify load raises FileNotFoundError when model path does not exist."""
+    with pytest.raises(FileNotFoundError, match="Model file not found"):
+        ConsumptionPredictor.load("non_existent_model_file.joblib")
+
+
+def test_model_load_corrupted_empty_file():
+    """Verify load raises ValueError with clear recovery message when file is empty."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        empty_model = Path(tmp_dir) / "empty.joblib"
+        empty_model.touch()
+
+        with pytest.raises(ValueError, match="Corrupted model file"):
+            ConsumptionPredictor.load(empty_model)
+
+
+def test_model_load_corrupted_garbage_bytes():
+    """Verify load raises ValueError with clear recovery message when file has invalid binary."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        garbage_model = Path(tmp_dir) / "garbage.joblib"
+        garbage_model.write_bytes(b"NOT_A_VALID_JOBLIB_OR_PICKLE_FILE_HEADER")
+
+        with pytest.raises(ValueError, match="Corrupted model file|Failed to load model artifact"):
+            ConsumptionPredictor.load(garbage_model)
+
+
+def test_model_load_invalid_payload_structure():
+    """Verify load raises ValueError when joblib artifact lacks required model structure."""
+    import joblib
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        invalid_model = Path(tmp_dir) / "invalid_struct.joblib"
+        # Save a dictionary without 'model' key
+        joblib.dump({"wrong_key": 123}, invalid_model)
+
+        with pytest.raises(ValueError, match="Corrupted or invalid model artifact"):
+            ConsumptionPredictor.load(invalid_model)
+
+
+def test_predict_nan_inf_features_raises_error(sample_chronological_dataset):
+    """Verify predict raises ValueError when fed NaN or infinite feature values."""
+    predictor = ConsumptionPredictor()
+    predictor.train_chronological(sample_chronological_dataset, test_size=0.2)
+
+    with pytest.raises(ValueError, match="cannot be NaN or infinity"):
+        predictor.predict(float("nan"))
+
+    with pytest.raises(ValueError, match="cannot be NaN or infinity"):
+        predictor.predict(float("inf"))
+
+    with pytest.raises(ValueError, match="cannot be NaN or infinity"):
+        predictor.predict({FEATURE_NAME: float("nan")})
+
+
+def test_predict_for_date_invalid_format(sample_chronological_dataset):
+    """Verify predict_for_date raises ValueError when date format is invalid."""
+    predictor = ConsumptionPredictor()
+    predictor.train_chronological(sample_chronological_dataset, test_size=0.2)
+
+    with pytest.raises(ValueError, match="Invalid ISO date format"):
+        predictor.predict_for_date("15-01-2025")
+
+
+def test_predict_for_date_missing_reference_date():
+    """Verify predict_for_date raises RuntimeError if reference_date is None."""
+    predictor = ConsumptionPredictor()
+    predictor.is_trained = True
+    predictor.reference_date = None
+
+    with pytest.raises(RuntimeError, match="Model reference date is not defined"):
+        predictor.predict_for_date("2025-01-01")
+

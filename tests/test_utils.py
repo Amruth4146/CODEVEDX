@@ -166,3 +166,51 @@ def test_display_usage_statistics_empty_warning(capsys):
     out = capsys.readouterr().out
     assert "[WARNING]" in out
     assert "empty" in out.lower()
+
+
+# =====================================================================
+# Error Handling Audit Tests for Utilities
+# =====================================================================
+
+def test_prompt_float_rejects_blank_nan_inf_and_text(monkeypatch, capsys):
+    """Verify prompt_float rejects blank, text, NaN, and Infinity before accepting valid input."""
+    # Sequence of bad inputs followed by valid 28.5:
+    # 1: "" (blank, no default)
+    # 2: "abc" (text)
+    # 3: "nan" (NaN)
+    # 4: "inf" (+Infinity)
+    # 5: "-inf" (-Infinity)
+    # 6: "-5.0" (violates min_val=0.0)
+    # 7: "28.5" (valid)
+    inputs = iter(["", "abc", "nan", "inf", "-inf", "-5.0", "28.5"])
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    result = prompt_float("Enter usage", min_val=0.0)
+    assert result == 28.5
+
+    out = capsys.readouterr().out
+    assert "Input cannot be blank" in out
+    assert "Text is not accepted" in out
+    assert "cannot be NaN or infinity" in out
+    assert "greater than or equal to 0.0" in out
+
+
+def test_prompt_date_rejects_blank_format_and_calendar(monkeypatch, capsys):
+    """Verify prompt_date rejects blank, wrong pattern, and invalid leap day before valid date."""
+    # Sequence of bad inputs followed by valid "2024-02-29":
+    # 1: "" (blank, no default)
+    # 2: "2024/02/29" (wrong delimiter)
+    # 3: "29-02-2024" (DD-MM-YYYY)
+    # 4: "2023-02-29" (2023 is not a leap year)
+    # 5: "2024-02-29" (valid leap date)
+    inputs = iter(["", "2024/02/29", "29-02-2024", "2023-02-29", "2024-02-29"])
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    dt = prompt_date("Enter date")
+    assert dt == datetime(2024, 2, 29)
+
+    out = capsys.readouterr().out
+    assert "Date cannot be blank" in out
+    assert "Invalid date format" in out
+    assert "Invalid calendar date" in out
+

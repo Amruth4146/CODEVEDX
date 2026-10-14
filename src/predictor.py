@@ -283,7 +283,10 @@ class ConsumptionPredictor:
             raise RuntimeError("Model must be trained before making predictions.")
 
         if isinstance(features, (int, float, np.integer, np.floating)):
-            X_df = pd.DataFrame([[float(features)]], columns=self.feature_names)
+            feat_val = float(features)
+            if np.isnan(feat_val) or np.isinf(feat_val):
+                raise ValueError("Prediction input feature cannot be NaN or infinity.")
+            X_df = pd.DataFrame([[feat_val]], columns=self.feature_names)
             pred = float(self.model.predict(X_df)[0])
             return round(pred, 2)
 
@@ -292,6 +295,8 @@ class ConsumptionPredictor:
                 val = float(features[FEATURE_NAME])
             else:
                 val = float(list(features.values())[0])
+            if np.isnan(val) or np.isinf(val):
+                raise ValueError("Prediction input feature cannot be NaN or infinity.")
             X_df = pd.DataFrame([[val]], columns=self.feature_names)
             pred = float(self.model.predict(X_df)[0])
             return round(pred, 2)
@@ -333,15 +338,21 @@ class ConsumptionPredictor:
             raise RuntimeError("Model must be trained before predicting for a date.")
 
         if self.reference_date is None:
-            # Fallback reference date if loaded without metadata
-            self.reference_date = datetime(2023, 1, 1)
+            raise RuntimeError(
+                "Model reference date is not defined. The model metadata may be corrupted. "
+                "Please retrain using Menu Option 5."
+            )
 
         if isinstance(date_input, str):
-            dt = datetime.strptime(date_input.strip()[:10], "%Y-%m-%d")
+            from src.data_manager import validate_iso_date
+            validated_str = validate_iso_date(date_input)
+            dt = datetime.strptime(validated_str, "%Y-%m-%d")
         elif isinstance(date_input, datetime):
             dt = date_input
         else:
-            raise TypeError(f"Expected datetime or string date, received {type(date_input).__name__}")
+            raise TypeError(
+                f"Expected datetime or string date (YYYY-MM-DD), received {type(date_input).__name__}."
+            )
 
         day_index = float((dt.date() - self.reference_date.date()).days)
         prediction = self.predict(day_index)
@@ -411,6 +422,8 @@ class ConsumptionPredictor:
 
         Raises:
             RuntimeError: If attempting to save an untrained model.
+            PermissionError: If write permission is denied.
+            IOError: If serialization fails.
         """
         if not self.is_trained:
             raise RuntimeError("Cannot save an untrained model.")
@@ -429,8 +442,12 @@ class ConsumptionPredictor:
             }
             joblib.dump(payload, path)
             return path
-        except Exception as exc:
-            raise IOError(f"Failed to save model artifact to '{path}': {exc}") from exc
+        except PermissionError as exc:
+            raise PermissionError(
+                f"Permission denied writing model artifact to '{path}': {exc}. Check directory write permissions."
+            ) from exc
+        except OSError as exc:
+            raise IOError(f"OS error writing model artifact to '{path}': {exc}") from exc
 
     @classmethod
     def load(cls, model_path: Union[str, Path] = DEFAULT_MODEL_PATH) -> "ConsumptionPredictor":
@@ -444,22 +461,52 @@ class ConsumptionPredictor:
 
         Raises:
             FileNotFoundError: If model file does not exist.
+            PermissionError: If model file cannot be read due to file permissions.
+            ValueError: If model file is corrupted, malformed, or missing required attributes.
             IOError: If deserialization fails.
         """
         path = Path(model_path)
         if not path.is_file():
-            raise FileNotFoundError(f"Model file not found at: '{path.resolve()}'")
+            raise FileNotFoundError(
+                f"Model file not found at: '{path.resolve()}'. "
+                "Please train a model first using Menu Option 5 ('Train ML model')."
+            )
 
         try:
             payload = joblib.load(path)
-            instance = cls(model=payload["model"])
-            instance.feature_names = payload.get("feature_names", [FEATURE_NAME])
-            instance.target_name = payload.get("target_name", TARGET_COLUMN)
-            instance.reference_date = payload.get("reference_date", None)
-            instance.training_metadata = payload.get("training_metadata", {})
-            instance.evaluation_metrics = payload.get("evaluation_metrics", {})
-            instance.trained_at = payload.get("trained_at", None)
-            instance.is_trained = True
-            return instance
+        except PermissionError as exc:
+            raise PermissionError(
+                f"Permission denied reading model artifact from '{path}': {exc}. Check file read permissions."
+            ) from exc
+        except (EOFError, ValueError) as exc:
+            raise ValueError(
+                f"Corrupted model file at '{path}': {exc}. "
+                "The file cannot be unpacked. Please retrain and overwrite the model using Menu Option 5."
+            ) from exc
         except Exception as exc:
-            raise IOError(f"Failed to load model artifact from '{path}': {exc}") from exc
+            raise ValueError(
+                f"Failed to load model artifact from '{path}': {exc}. "
+                "The file may be corrupted or incompatible. Please retrain using Menu Option 5."
+            ) from exc
+
+        if not isinstance(payload, dict) or "model" not in payload:
+            raise ValueError(
+                f"Corrupted or invalid model artifact in '{path}'. "
+                "Expected dictionary containing 'model' key. Please retrain using Menu Option 5."
+            )
+
+        if not hasattr(payload["model"], "predict"):
+            raise ValueError(
+                f"Invalid model artifact in '{path}': the loaded model object is missing 'predict'. "
+                "Please retrain using Menu Option 5."
+            )
+
+        instance = cls(model=payload["model"])
+        instance.feature_names = payload.get("feature_names", [FEATURE_NAME])
+        instance.target_name = payload.get("target_name", TARGET_COLUMN)
+        instance.reference_date = payload.get("reference_date", None)
+        instance.training_metadata = payload.get("training_metadata", {})
+        instance.evaluation_metrics = payload.get("evaluation_metrics", {})
+        instance.trained_at = payload.get("trained_at", None)
+        instance.is_trained = True
+        return instance

@@ -7,12 +7,16 @@ This module provides:
 - Educational console explanations for utility metrics (Total kWh vs. Average Daily kWh).
 """
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+
+# Regular expression pattern for strict ISO date format: YYYY-MM-DD
+ISO_DATE_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
 # Base directory paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -105,6 +109,9 @@ def prompt_float(
 ) -> float:
     """Safely prompt the user for a floating-point number with validation.
 
+    Rejects blank inputs (when no default is provided), text, NaN, infinity,
+    and out-of-range values.
+
     Args:
         prompt_text: Question or prompt to display.
         min_val: Optional lower bound (inclusive).
@@ -118,24 +125,38 @@ def prompt_float(
         default_str = f" [default: {default}]" if default is not None else ""
         raw_input = input(f"{prompt_text}{default_str}: ").strip()
 
-        if not raw_input and default is not None:
-            return default
+        if not raw_input:
+            if default is not None:
+                return default
+            print("  [!] Input cannot be blank. Please enter a valid decimal number.")
+            continue
 
         try:
             val = float(raw_input)
-            if min_val is not None and val < min_val:
-                print(f"  [!] Value must be greater than or equal to {min_val}.")
-                continue
-            if max_val is not None and val > max_val:
-                print(f"  [!] Value must be less than or equal to {max_val}.")
-                continue
-            return val
         except ValueError:
-            print("  [!] Please enter a valid decimal number.")
+            print("  [!] Invalid input. Text is not accepted; please enter a valid decimal number.")
+            continue
+
+        if np.isnan(val) or np.isinf(val):
+            print("  [!] Value must be a finite decimal number (cannot be NaN or infinity).")
+            continue
+
+        if min_val is not None and val < min_val:
+            print(f"  [!] Value must be greater than or equal to {min_val}.")
+            continue
+
+        if max_val is not None and val > max_val:
+            print(f"  [!] Value must be less than or equal to {max_val}.")
+            continue
+
+        return val
 
 
 def prompt_date(prompt_text: str, default: Optional[str] = None) -> datetime:
     """Safely prompt the user for a date in YYYY-MM-DD format.
+
+    Rejects blank inputs (when no default is provided), invalid formats,
+    and impossible calendar dates (such as leap year discrepancies).
 
     Args:
         prompt_text: Question or prompt to display.
@@ -148,14 +169,22 @@ def prompt_date(prompt_text: str, default: Optional[str] = None) -> datetime:
         default_str = f" [default: {default}]" if default is not None else ""
         raw_input = input(f"{prompt_text} (YYYY-MM-DD){default_str}: ").strip()
 
-        if not raw_input and default is not None:
-            raw_input = default
+        if not raw_input:
+            if default is not None:
+                raw_input = default
+            else:
+                print("  [!] Date cannot be blank. Please enter a date in YYYY-MM-DD format (e.g. 2024-05-15).")
+                continue
+
+        if not ISO_DATE_PATTERN.match(raw_input):
+            print(f"  [!] Invalid date format: '{raw_input}'. Please use YYYY-MM-DD (e.g. 2024-05-15).")
+            continue
 
         try:
             parsed = datetime.strptime(raw_input, "%Y-%m-%d")
             return parsed
-        except ValueError:
-            print("  [!] Invalid date format. Please use YYYY-MM-DD (e.g. 2024-05-15).")
+        except ValueError as exc:
+            print(f"  [!] Invalid calendar date '{raw_input}': {exc}")
 
 
 def confirm_action(prompt_text: str, default: bool = True) -> bool:
