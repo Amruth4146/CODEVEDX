@@ -1,7 +1,7 @@
-# Python Bytecode and Interpreter Caches
+﻿# Python Bytecode and Interpreter Caches
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 
 # Virtual Environments
@@ -9,8 +9,6 @@ __pycache__/
 venv/
 ENV/
 env/
-env.bak/
-venv.bak/
 
 # Secrets, Environment Variables, and Credentials
 .env
@@ -19,23 +17,6 @@ venv.bak/
 secrets.json
 *.pem
 *.key
-
-# Distribution, Packaging, and Builds
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # Testing, Type Checking, and Coverage
 .pytest_cache/
@@ -49,8 +30,6 @@ htmlcov/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
 
 # Operating System Temporary Files
 Thumbs.db
