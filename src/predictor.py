@@ -167,6 +167,8 @@ class ConsumptionPredictor:
             "intercept_kwh": intercept,
             "trained_at": self.trained_at,
             "total_records": unique_dates_count,
+            "latest_historical_date": clean_df[DATE_COLUMN].max().strftime("%Y-%m-%d"),
+            "earliest_historical_date": clean_df[DATE_COLUMN].min().strftime("%Y-%m-%d"),
             "train_records": len(train_df),
             "test_records": len(test_df),
             "train_date_range": (
@@ -344,6 +346,59 @@ class ConsumptionPredictor:
         day_index = float((dt.date() - self.reference_date.date()).days)
         prediction = self.predict(day_index)
         return float(prediction)
+
+    def check_model_staleness(self, df: pd.DataFrame) -> Tuple[bool, str]:
+        """Check whether the historical dataset has changed since this model was trained.
+
+        Compares the current dataset's record count and latest date against the metadata
+        recorded when the model was trained.
+
+        Args:
+            df: Current dataset DataFrame.
+
+        Returns:
+            Tuple of (is_stale: bool, explanation: str).
+        """
+        if not self.is_trained:
+            return True, "Model has not been trained yet."
+
+        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+            return False, "Provided dataset is empty; cannot evaluate staleness."
+
+        if DATE_COLUMN not in df.columns:
+            return False, f"Date column '{DATE_COLUMN}' not found in dataset."
+
+        clean_dates = pd.to_datetime(df[DATE_COLUMN], errors="coerce").dropna()
+        if clean_dates.empty:
+            return False, "No valid dates found in dataset."
+
+        current_unique_count = int(clean_dates.nunique())
+        current_latest_str = clean_dates.max().strftime("%Y-%m-%d")
+
+        trained_latest_str = self.training_metadata.get("latest_historical_date")
+        if not trained_latest_str:
+            # Fallback to test_date_range if latest_historical_date key is missing
+            range_str = self.training_metadata.get("test_date_range", "")
+            if " to " in range_str:
+                trained_latest_str = range_str.split(" to ")[-1].strip()
+
+        trained_records_count = self.training_metadata.get("total_records")
+
+        if trained_latest_str and current_latest_str != trained_latest_str:
+            return (
+                True,
+                f"Historical records have changed: Model was trained on data up to {trained_latest_str}, "
+                f"but current dataset contains records up to {current_latest_str}."
+            )
+
+        if trained_records_count is not None and current_unique_count != trained_records_count:
+            return (
+                True,
+                f"Dataset size changed: Model was trained on {trained_records_count} records, "
+                f"but current dataset contains {current_unique_count} records."
+            )
+
+        return False, "Model metadata is up-to-date with current dataset."
 
     def save(self, model_path: Union[str, Path] = DEFAULT_MODEL_PATH) -> Path:
         """Serialize and save the trained model, training metadata, and metrics using joblib.

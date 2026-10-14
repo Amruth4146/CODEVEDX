@@ -133,3 +133,40 @@ def test_r2_score_undefined_on_constant_test_targets():
     assert "r2_score" in metrics
     # Since variance of last 2 samples is 0, R2 is undefined (None)
     assert metrics["r2_score"] is None
+
+
+def test_check_model_staleness(sample_chronological_dataset):
+    """Verify check_model_staleness detects when dataset has changed since training."""
+    predictor = ConsumptionPredictor()
+    predictor.train_chronological(sample_chronological_dataset, test_size=0.2)
+
+    # Initially fresh
+    is_stale, reason = predictor.check_model_staleness(sample_chronological_dataset)
+    assert is_stale is False
+    assert "up-to-date" in reason
+
+    # Simulate updated dataset with an additional future record
+    new_row = pd.DataFrame({
+        DATE_COLUMN: ["2024-02-05"],
+        TARGET_COLUMN: [25.0],
+    })
+    modified_df = pd.concat([sample_chronological_dataset, new_row], ignore_index=True)
+
+    is_stale_updated, stale_reason = predictor.check_model_staleness(modified_df)
+    assert is_stale_updated is True
+    assert "changed" in stale_reason.lower() or "2024-02-05" in stale_reason
+
+
+def test_negative_prediction_detection():
+    """Verify steep downward trend yields negative prediction for caller to flag."""
+    dates = pd.date_range("2024-01-01", periods=10, freq="D").strftime("%Y-%m-%d")
+    # Steep decline: 50, 45, 40, ...
+    declining_usage = [50.0 - 5.0 * i for i in range(10)]
+    df = pd.DataFrame({DATE_COLUMN: dates, TARGET_COLUMN: declining_usage})
+
+    predictor = ConsumptionPredictor()
+    predictor.train_chronological(df, test_size=0.2)
+
+    # 100 days into the future: 50 - 5 * 100 = -450
+    future_pred = predictor.predict_for_date("2024-05-01")
+    assert future_pred < 0.0

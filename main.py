@@ -40,6 +40,7 @@ from src.data_manager import (
 )
 from src.predictor import ConsumptionPredictor
 from src.utils import (
+    DATE_COLUMN,
     DEFAULT_DATA_PATH,
     DEFAULT_MODEL_PATH,
     TARGET_COLUMN,
@@ -359,17 +360,25 @@ def menu_predict_future(
     data_path: Path = DEFAULT_DATA_PATH,
     model_path: Path = DEFAULT_MODEL_PATH,
 ) -> None:
-    """Option 6: Predict future usage."""
+    """Option 6: Predict future electricity consumption for a date after the latest historical observation."""
     print_header("6. Predict Future Usage")
 
+    # Step 1: Verify model artifact exists; if missing, explain how to train it
     if not model_path.is_file():
-        print(f"[WARNING] No trained model found at '{model_path}'.")
-        train_now = confirm_action("Would you like to train a model first?", default=True)
+        print(f"[WARNING] Trained model artifact not found at: '{model_path}'.")
+        print("\nTo train a prediction model:")
+        print("  1. Return to the main menu.")
+        print("  2. Select Option 5 ('Train ML model').")
+        print("  3. The system will fit a LinearRegression trend baseline on your historical data.")
+        print("  4. The model and its chronological metadata will be serialized to models/.\n")
+
+        train_now = confirm_action("Would you like to run the training pipeline now?", default=True)
         if not train_now:
             print("[INFO] Prediction aborted. A trained model is required.")
             return
         menu_train_model(data_path=data_path, model_path=model_path)
         if not model_path.is_file():
+            print("[ERROR] Training was not completed. Cannot proceed with prediction.")
             return
 
     try:
@@ -378,15 +387,61 @@ def menu_predict_future(
         print(f"\n[ERROR] Failed to load model artifact: {exc}")
         return
 
-    print("Linear trend baseline forecast based on calendar date.")
-    print("NOTE: This model forecasts baseline trend from numeric day index (not seasonal peaks).\n")
-
-    try:
-        target_dt = prompt_date("  Target Date (YYYY-MM-DD)", default=datetime.now().strftime("%Y-%m-%d"))
-    except (KeyboardInterrupt, EOFError):
-        print("\n[INFO] Operation cancelled.")
+    # Step 2: Ensure historical dataset exists for date boundary checking
+    df = ensure_dataset_exists(data_path)
+    if df is None or df.empty:
+        print("[ERROR] Cannot validate forecast date: historical dataset is empty.")
         return
 
+    # Step 3: Detect stale model metadata if data changed after training
+    is_stale, stale_reason = predictor.check_model_staleness(df)
+    if is_stale:
+        print_section("Model Staleness Detected")
+        print(f"  [WARNING] {stale_reason}")
+        print("  Predictions made with an outdated model may not reflect recent consumption patterns.")
+        retrain_now = confirm_action(
+            "Would you like to retrain the model now with the updated dataset?",
+            default=True,
+        )
+        if retrain_now:
+            menu_train_model(data_path=data_path, model_path=model_path)
+            try:
+                predictor = ConsumptionPredictor.load(model_path)
+            except Exception as exc:
+                print(f"[ERROR] Failed to reload retrained model: {exc}")
+                return
+        else:
+            print("  [WARNING] Continuing with stale model as requested.\n")
+
+    # Step 4: Determine latest historical observation
+    clean_dates = pd.to_datetime(df[DATE_COLUMN], errors="coerce").dropna()
+    if clean_dates.empty:
+        print("[ERROR] Historical dataset contains no valid calendar dates.")
+        return
+
+    latest_historical_dt = clean_dates.max()
+    latest_historical_str = latest_historical_dt.strftime("%Y-%m-%d")
+
+    print(f"Latest historical observation recorded: {latest_historical_str}")
+    print("Please enter a future forecast date (must be strictly AFTER the latest observation):")
+
+    # Step 5: Prompt and validate that date is strictly after latest observation
+    while True:
+        try:
+            target_dt = prompt_date("  Future Forecast Date")
+        except (KeyboardInterrupt, EOFError):
+            print("\n[INFO] Operation cancelled.")
+            return
+
+        if target_dt.date() <= latest_historical_dt.date():
+            print(
+                f"  [!] Invalid forecast date '{target_dt.strftime('%Y-%m-%d')}'. "
+                f"Must be strictly AFTER the latest historical observation ({latest_historical_str})."
+            )
+            continue
+        break
+
+    # Step 6: Use identical date-to-numeric day index transformation
     ref_date_str = (
         predictor.reference_date.strftime("%Y-%m-%d")
         if predictor.reference_date
@@ -398,10 +453,11 @@ def menu_predict_future(
         calc_day_idx = 0
 
     print(f"\n  * Reference Base Date (Day 0): {ref_date_str}")
-    print(f"  * Computed Target Day Index  : Day {calc_day_idx}")
+    print(f"  * Numeric Day Index          : Day {calc_day_idx}")
 
     proceed = confirm_action(
-        f"Proceed with prediction for {target_dt.strftime('%Y-%m-%d')}?", default=True
+        f"Proceed with forecast for {target_dt.strftime('%Y-%m-%d')} (Day {calc_day_idx})?",
+        default=True,
     )
     if not proceed:
         print("[INFO] Prediction cancelled.")
@@ -412,12 +468,34 @@ def menu_predict_future(
         day_name = target_dt.strftime("%A")
         is_wknd = "Weekend" if target_dt.weekday() >= 5 else "Weekday"
 
-        print_section("Baseline Forecast Result")
-        print(f"  Target Date                  : {target_dt.strftime('%Y-%m-%d')} ({day_name}, {is_wknd})")
-        print(f"  Day Index from Base Date     : {calc_day_idx} days")
-        print("  " + "=" * 55)
-        print(f"  * PREDICTED DAILY CONSUMPTION: {predicted_kwh:.2f} kWh")
-        print("  " + "=" * 55)
+        print_section("Future Electricity Usage Forecast")
+        print(f"  Forecast Date                : {target_dt.strftime('%Y-%m-%d')} ({day_name}, {is_wknd})")
+        print(f"  Reference Base Date (Day 0)  : {ref_date_str}")
+        print(f"  Elapsed Numeric Day Index    : {calc_day_idx} days")
+
+        # Step 7: Flag negative predictions as unsuitable model results
+        if predicted_kwh < 0.0:
+            print("  " + "=" * 55)
+            print(f"  * RAW PREDICTED CONSUMPTION  : {predicted_kwh:.2f} kWh")
+            print("  " + "=" * 55)
+            print("\n  [WARNING] UNSUITABLE MODEL RESULT: Negative Consumption Forecast!")
+            print(f"  * The linear model projected a negative usage value of {predicted_kwh:.2f} kWh.")
+            print("  * Physical electricity consumption cannot be negative (>= 0.0 kWh).")
+            print("  * Cause: Extrapolating a downward trend line past its zero-intercept point.")
+            print("  * This indicates that a simple linear trend is NOT suitable for this forecast horizon.")
+            print("  * Do NOT treat this figure as a reliable or usable forecast.")
+        else:
+            print("  " + "=" * 55)
+            print(f"  * PREDICTED DAILY CONSUMPTION: {predicted_kwh:.2f} kWh")
+            print("  " + "=" * 55)
+
+        # Step 8: Uncertainty and data quality advisory
+        print("\n  [NOTE] Forecast Uncertainty Advisory:")
+        print("  * Future estimates carry inherent uncertainty and heavily depend on historical")
+        print("    training data quality, sample duration, and linear extrapolation assumptions.")
+        print("  * Linear trend models do not capture weather fluctuations, cooling/heating peaks,")
+        print("    or sudden demand shifts. Use as a baseline estimate only.")
+
     except Exception as exc:
         print(f"\n[ERROR] Prediction failed: {exc}")
 
