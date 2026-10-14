@@ -113,13 +113,23 @@ def test_load_data_file_not_found():
 
 
 def test_load_data_empty_file():
-    """Verify load_data raises ValueError on empty file."""
+    """Verify load_data raises ValueError on 0-byte empty file."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         empty_path = Path(tmp_dir) / "empty.csv"
         empty_path.touch()
 
         with pytest.raises(ValueError, match="is empty"):
             load_data(empty_path)
+
+
+def test_load_data_headers_only_empty_dataset():
+    """Verify load_data raises ValueError when CSV has column headers but zero data records."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        headers_only_path = Path(tmp_dir) / "headers_only.csv"
+        headers_only_path.write_text("date,usage_kwh\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="contains no records"):
+            load_data(headers_only_path)
 
 
 def test_save_data_prevent_accidental_overwrite():

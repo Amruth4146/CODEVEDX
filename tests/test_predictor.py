@@ -120,6 +120,13 @@ def test_model_save_and_load(sample_chronological_dataset):
         assert loaded_pred == orig_pred
 
 
+def test_model_save_untrained_raises_error():
+    """Verify attempting to save an untrained predictor raises RuntimeError."""
+    predictor = ConsumptionPredictor()
+    with pytest.raises(RuntimeError, match="Cannot save an untrained model"):
+        predictor.save("dummy_path.joblib")
+
+
 def test_r2_score_undefined_on_constant_test_targets():
     """Verify R2 score returns None when test targets have zero variance."""
     # 8 records: first 6 with trend, last 2 with identical constant value

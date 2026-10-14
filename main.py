@@ -751,14 +751,14 @@ def main() -> None:
     # If any CLI arguments are passed, execute that action and exit
     if args.generate_data:
         print_header("Generate Demonstration Sample Data")
-        df = generate_synthetic_sample_data(allow_overwrite=True)
+        df = generate_synthetic_sample_data(output_path=DEFAULT_DATA_PATH, allow_overwrite=True)
         print(f"[SUCCESS] Saved {len(df)} records to: {DEFAULT_DATA_PATH}")
         return
     if args.summary:
-        menu_view_statistics()
+        menu_view_statistics(data_path=DEFAULT_DATA_PATH)
         return
     if args.view_records is not None:
-        df = ensure_dataset_exists()
+        df = ensure_dataset_exists(data_path=DEFAULT_DATA_PATH)
         if df is not None:
             records = view_all_records(df, limit=args.view_records, tail=True)
             for idx, row in records.iterrows():
@@ -766,7 +766,7 @@ def main() -> None:
         return
     if args.add_record:
         date_str, usage_str = args.add_record
-        df = ensure_dataset_exists()
+        df = ensure_dataset_exists(data_path=DEFAULT_DATA_PATH)
         if df is not None:
             try:
                 val = float(usage_str)
@@ -778,7 +778,7 @@ def main() -> None:
         return
     if args.update_record:
         date_str, usage_str = args.update_record
-        df = ensure_dataset_exists()
+        df = ensure_dataset_exists(data_path=DEFAULT_DATA_PATH)
         if df is not None:
             try:
                 val = float(usage_str)
@@ -789,10 +789,10 @@ def main() -> None:
                 print(f"[ERROR] Failed to update record: {exc}")
         return
     if args.train:
-        menu_train_model()
+        menu_train_model(data_path=DEFAULT_DATA_PATH, model_path=DEFAULT_MODEL_PATH)
         return
     if args.model_info:
-        menu_view_model_evaluation()
+        menu_view_model_evaluation(model_path=DEFAULT_MODEL_PATH)
         return
     if args.predict:
         target_date = args.date or datetime.now().strftime("%Y-%m-%d")
@@ -801,7 +801,7 @@ def main() -> None:
         rolling = args.rolling if args.rolling is not None else 25.0
 
         if not DEFAULT_MODEL_PATH.is_file():
-            menu_train_model()
+            menu_train_model(data_path=DEFAULT_DATA_PATH, model_path=DEFAULT_MODEL_PATH)
         predictor = ConsumptionPredictor.load(DEFAULT_MODEL_PATH)
         result = predictor.predict_for_date(
             date_input=target_date, lag_1=lag1, lag_7=lag7, rolling_7=rolling
