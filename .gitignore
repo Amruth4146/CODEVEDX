@@ -1,14 +1,26 @@
-# Python bytecode and cache
+# Python Bytecode and Interpreter Caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Environments
+# Virtual Environments
 .venv/
 venv/
 ENV/
 env/
+env.bak/
+venv.bak/
+
+# Secrets, Environment Variables, and Credentials
+.env
+.env.*
+*.env
+secrets.json
+*.pem
+*.key
+
+# Distribution, Packaging, and Builds
 build/
 develop-eggs/
 dist/
@@ -25,23 +37,30 @@ wheels/
 .installed.cfg
 *.egg
 
-# Testing & Coverage
+# Testing, Type Checking, and Coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# IDE & Editor configs
+# IDEs, Text Editors, and Developer Tools
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
-# OS files
+# Operating System Temporary Files
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 
-# Temporary outputs
+# Temporary Files and Logs
 *.log
+*.tmp
+*.bak
+scratch/
