@@ -1,45 +1,86 @@
-﻿# Python Bytecode and Interpreter Caches
+# ============================================================================
+# Top-Level Git Ignore Configuration — CODEVEDX AI/ML Internship Portfolio
+# ============================================================================
+
+# 1. Python Bytecode & Interpreter Caches
 __pycache__/
 *.py[cod]
 *.class
 *.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual Environments
+# 2. Virtual Environments & Local Package Caches
 .venv/
 venv/
 ENV/
 env/
+env.bak/
+venv.bak/
+*.venv/
 
-# Secrets, Environment Variables, and Credentials
+# 3. Secrets, Environment Variables, and Credentials
 .env
 .env.*
 *.env
 secrets.json
+secrets.toml
 *.pem
 *.key
+*.cert
+*.pfx
 
-# Testing, Type Checking, and Coverage
+# 4. Testing, Type Checking, and Coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
 
-# IDEs, Text Editors, and Developer Tools
+# 5. IDEs, Text Editors, and Developer Tools
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
-# Operating System Temporary Files
+# 6. Operating System Temporary Files
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-$RECYCLE.BIN/
+.BIN/
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Temporary Files and Logs
+# 7. Temporary Files, Caches, and Logs
 *.log
 *.tmp
 *.bak
 scratch/
+
+# 8. Data & Model Tracking Rules (Allow essential task benchmarks & models)
+!Task-1/data/*.csv
+!Task-1/models/*.joblib
+!Task-2/data/raw/*.csv
+!Task-2/data/processed/*.csv
+!Task-2/models/*.joblib
+!Task-2/.streamlit/config.toml

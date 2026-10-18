@@ -1,0 +1,96 @@
+# ============================================================================
+# Git Ignore Configuration — Student Performance Prediction System
+# CODEVEDX Internship: Task 2 (Training + Data Analysis Tool)
+# ============================================================================
+
+# 1. Byte-compiled / Optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 2. Virtual Environments & Packages
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+*.venv/
+
+# 3. Environment Variables & Credentials / Secrets
+.env
+.env.*
+!.env.example
+secrets.toml
+.streamlit/secrets.toml
+*.pem
+*.key
+*.cert
+*.pfx
+
+# 4. Jupyter Notebook Checkpoints & Outputs
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+# 5. Testing, Coverage & Static Analysis Caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# 6. IDEs & Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# 7. Operating System Artifacts & Temp Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride
+*.tmp
+*.bak
+*.log
+
+# 8. Data & Model Versioning Rules
+# Large raw dumps (>100MB) should be ignored by default
+data/raw/*.zip
+data/raw/*.tar.gz
+data/temp/
+
+# Explicitly KEEP non-sensitive benchmark datasets and baseline model tracked
+!data/raw/student_data.csv
+!data/processed/cleaned_student_data.csv
+!models/student_performance_model.joblib
