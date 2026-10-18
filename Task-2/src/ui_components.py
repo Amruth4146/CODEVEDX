@@ -156,6 +156,7 @@ def render_kpi_card(
     color: str = "#4F46E5",
     icon: Optional[str] = None,
     badge_chip: Optional[str] = None,
+    **kwargs,
 ) -> str:
     """Returns HTML for an elevated premium SaaS KPI card."""
     sub_html = f'<div class="metric-sub" style="font-size: 0.76rem; color: #64748B; margin-top: 0.35rem;">{subtitle}</div>' if subtitle else ""
