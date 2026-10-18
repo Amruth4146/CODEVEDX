@@ -152,6 +152,8 @@ with k1:
             value=f"{total_students:,}",
             subtitle="Active Cohort Records",
             color="#4F46E5",
+            icon="👥",
+            badge_chip="Cohort",
         ),
         unsafe_allow_html=True,
     )
@@ -163,6 +165,8 @@ with k2:
             value=f"{avg_attendance:.1f}%",
             subtitle="Campus Attendance Rate",
             color="#06B6D4",
+            icon="📅",
+            badge_chip="Campus",
         ),
         unsafe_allow_html=True,
     )
@@ -174,6 +178,8 @@ with k3:
             value=f"{avg_prev_marks:.1f}",
             subtitle="Baseline Score (0–100)",
             color="#6366F1",
+            icon="📝",
+            badge_chip="Baseline",
         ),
         unsafe_allow_html=True,
     )
@@ -185,6 +191,8 @@ with k4:
             value=f"{avg_final_score:.1f}",
             subtitle="Semester Examination Mean",
             color="#10B981",
+            icon="🎯",
+            badge_chip="Outcome",
         ),
         unsafe_allow_html=True,
     )
@@ -196,6 +204,8 @@ with k5:
             value=algo_name.split()[0] if " " in algo_name else algo_name,
             subtitle=f"R²: {test_r2:.4f}" if test_r2 is not None else "Pipeline Ready",
             color="#F59E0B",
+            icon="⚡",
+            badge_chip="Selected",
         ),
         unsafe_allow_html=True,
     )

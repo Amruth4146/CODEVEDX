@@ -42,18 +42,18 @@ def render_header(
     badge_class = f"badge badge-{badge_variant}"
     status_html = ""
     if status_pill:
-        status_html = f'<span class="badge badge-success" style="margin-left: 0.5rem;">{status_pill}</span>'
+        status_html = f'<span class="badge badge-success" style="margin-left: 0.5rem;"><span class="pulse-dot-emerald"></span>{status_pill}</span>'
 
     header_html = f"""
     <div style="margin-bottom: 1.75rem; border-bottom: 1px solid #E2E8F0; padding-bottom: 1.25rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
             <span class="{badge_class}">{badge_text}</span>
             {status_html}
         </div>
-        <h1 style="font-size: 2.15rem; font-weight: 800; color: #0F172A; margin: 0.2rem 0 0.35rem 0; letter-spacing: -0.025em; line-height: 1.2;">
+        <h1 class="gradient-text" style="font-size: 2.25rem; font-weight: 800; margin: 0.2rem 0 0.35rem 0; letter-spacing: -0.025em; line-height: 1.2;">
             {title}
         </h1>
-        <p style="color: #64748B; font-size: 1.02rem; margin: 0; line-height: 1.5; max-width: 900px;">
+        <p style="color: #64748B; font-size: 1.02rem; margin: 0; line-height: 1.55; max-width: 920px;">
             {subtitle}
         </p>
     </div>
@@ -71,7 +71,7 @@ def render_sidebar(
     Renders the standardized SaaS sidebar across all pages.
     Features:
     - Application branding
-    - Live model production status
+    - Live model production status with pulsating indicator
     - Navigation context
     - System metadata
     """
@@ -79,32 +79,44 @@ def render_sidebar(
         # Branding
         st.markdown("""
         <div class="sidebar-branding">
-            <div style="display: flex; align-items: center; gap: 0.6rem;">
-                <div style="background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: 800;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <div style="background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem; font-weight: 800; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);">
                     ✦
                 </div>
                 <div>
                     <div class="sidebar-title">EduPredict AI</div>
-                    <div class="sidebar-subtitle">Student Performance System</div>
+                    <div class="sidebar-subtitle">Student Performance Intelligence</div>
                 </div>
             </div>
-            <div style="margin-top: 0.6rem;">
-                <span class="badge badge-primary" style="font-size: 0.7rem;">CODEVEDX TASK 2</span>
+            <div style="margin-top: 0.65rem;">
+                <span class="badge badge-primary" style="font-size: 0.7rem; letter-spacing: 0.04em;">CODEVEDX TASK 2</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         # Telemetry Card
         st.markdown(f"""
-        <div class="sidebar-status-card">
-            <div style="font-weight: 700; color: #0F172A; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.35rem;">
-                <span style="color: #10B981;">●</span> Production Telemetry
+        <div class="sidebar-status-card" style="box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);">
+            <div style="font-weight: 700; color: #0F172A; margin-bottom: 0.45rem; display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+                <span class="pulse-dot-emerald"></span> Production Telemetry
             </div>
-            <div style="color: #64748B; line-height: 1.6;">
-                <strong>Active Model:</strong> <span style="color: #4F46E5;">{active_model_name}</span><br>
-                <strong>Test R² Score:</strong> <span style="color: #0F172A; font-weight: 600;">{test_r2:.4f}</span><br>
-                <strong>Test RMSE:</strong> <span style="color: #0F172A; font-weight: 600;">{test_rmse:.2f} pts</span><br>
-                <strong>Cohort Volume:</strong> <span style="color: #0F172A; font-weight: 600;">{dataset_records} students</span>
+            <div style="color: #64748B; line-height: 1.65; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                    <span>Active Model:</span>
+                    <strong style="color: #4F46E5;">{active_model_name}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                    <span>Test R² Score:</span>
+                    <strong style="color: #0F172A;">{test_r2:.4f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                    <span>Test RMSE:</span>
+                    <strong style="color: #0F172A;">{test_rmse:.2f} pts</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Cohort Size:</span>
+                    <strong style="color: #0F172A;">{dataset_records} records</strong>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -113,7 +125,7 @@ def render_sidebar(
 
         # Quick Navigation Summary
         st.markdown("""
-        <div style="color: #64748B; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+        <div style="color: #64748B; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem;">
             System Modules
         </div>
         """, unsafe_allow_html=True)
@@ -130,8 +142,8 @@ def render_sidebar(
 
         # Footer Version Tag
         st.markdown("""
-        <div style="text-align: center; color: #94A3B8; font-size: 0.75rem; padding-top: 0.5rem;">
-            v2.4.2 • Production SaaS Edition<br>
+        <div style="text-align: center; color: #94A3B8; font-size: 0.75rem; padding-top: 0.5rem; line-height: 1.5;">
+            v2.4.2 &bull; Production SaaS Edition<br>
             CODEVEDX Internship Assessment
         </div>
         """, unsafe_allow_html=True)
@@ -142,13 +154,23 @@ def render_kpi_card(
     value: str,
     subtitle: Optional[str] = None,
     color: str = "#4F46E5",
+    icon: Optional[str] = None,
+    badge_chip: Optional[str] = None,
 ) -> str:
-    """Returns HTML for a premium SaaS KPI card."""
-    sub_html = f'<div class="metric-sub">{subtitle}</div>' if subtitle else ""
+    """Returns HTML for an elevated premium SaaS KPI card."""
+    sub_html = f'<div class="metric-sub" style="font-size: 0.76rem; color: #64748B; margin-top: 0.35rem;">{subtitle}</div>' if subtitle else ""
+    
+    top_row_html = ""
+    if icon or badge_chip:
+        icon_html = f'<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(79, 70, 229, 0.08); display: flex; align-items: center; justify-content: center; font-size: 1rem;">{icon}</div>' if icon else '<div></div>'
+        chip_html = f'<span class="badge badge-neutral" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">{badge_chip}</span>' if badge_chip else ''
+        top_row_html = f'<div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 0.5rem;">{icon_html}{chip_html}</div>'
+
     return f"""
     <div class="metric-box">
-        <div class="metric-val" style="color: {color};">{value}</div>
-        <div class="metric-label">{label}</div>
+        {top_row_html}
+        <div class="metric-label" style="text-align: left; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B;">{label}</div>
+        <div class="metric-val" style="text-align: left; color: {color}; font-size: 1.85rem; font-weight: 800; letter-spacing: -0.02em; margin-top: 0.2rem;">{value}</div>
         {sub_html}
     </div>
     """

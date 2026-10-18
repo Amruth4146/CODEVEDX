@@ -216,6 +216,8 @@ with tab_bench:
                 value=active_name,
                 subtitle="Lowest CV RMSE Winner",
                 color="#4F46E5",
+                icon="⚡",
+                badge_chip="Winner",
             ),
             unsafe_allow_html=True,
         )
@@ -227,6 +229,8 @@ with tab_bench:
                 value=f"{training_samples} (80%)",
                 subtitle="Cross-Validation Partition",
                 color="#06B6D4",
+                icon="📚",
+                badge_chip="Train",
             ),
             unsafe_allow_html=True,
         )
@@ -238,6 +242,8 @@ with tab_bench:
                 value=f"{test_samples} (20%)",
                 subtitle="Held-Out Test Partition",
                 color="#10B981",
+                icon="🛡️",
+                badge_chip="Test",
             ),
             unsafe_allow_html=True,
         )
@@ -249,6 +255,8 @@ with tab_bench:
                 value=f"{active_cv_rmse:.2f} pts",
                 subtitle="5-Fold Training Selection",
                 color="#A855F7",
+                icon="📊",
+                badge_chip="5-Fold",
             ),
             unsafe_allow_html=True,
         )
@@ -264,6 +272,8 @@ with tab_bench:
                 value=f"{test_mae:.2f} pts",
                 subtitle="Mean Absolute Error",
                 color="#0891B2",
+                icon="📏",
+                badge_chip="Linear",
             ),
             unsafe_allow_html=True,
         )
@@ -275,6 +285,8 @@ with tab_bench:
                 value=f"{test_mse:.2f}",
                 subtitle="Mean Squared Error",
                 color="#F59E0B",
+                icon="📐",
+                badge_chip="Variance",
             ),
             unsafe_allow_html=True,
         )
@@ -286,6 +298,8 @@ with tab_bench:
                 value=f"{test_rmse:.2f} pts",
                 subtitle="Root Mean Squared Error",
                 color="#EC4899",
+                icon="🎯",
+                badge_chip="Std Dev",
             ),
             unsafe_allow_html=True,
         )
@@ -297,6 +311,8 @@ with tab_bench:
                 value=f"{test_r2:.4f}",
                 subtitle="Coefficient of Determination",
                 color="#10B981",
+                icon="✨",
+                badge_chip="Accuracy",
             ),
             unsafe_allow_html=True,
         )

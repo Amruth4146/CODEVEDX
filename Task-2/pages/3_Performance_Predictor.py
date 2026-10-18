@@ -176,7 +176,49 @@ with tab_individual:
 
     with col_input:
         st.markdown("### 📝 **Academic Input Parameters**")
-        st.caption("Adjust inputs using either the slider or numeric input box.")
+        st.caption("Adjust inputs using either the slider or numeric input box, or choose a preset archetype:")
+
+        # Quick Archetype Demo Profiles
+        st.markdown("<div style='font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;'>⚡ Quick Demo Archetypes</div>", unsafe_allow_html=True)
+        p_c1, p_c2, p_c3 = st.columns(3)
+        with p_c1:
+            if st.button("🌟 Top Achiever", key="preset_top", use_container_width=True, help="Load high performance profile (94% Attendance, 90 Marks, 7.5 hrs study)"):
+                st.session_state.att_val = 94.0
+                st.session_state.prev_val = 90.0
+                st.session_state.study_val = 7.5
+                st.session_state.sl_att = 94.0
+                st.session_state.num_att = 94.0
+                st.session_state.sl_prev = 90.0
+                st.session_state.num_prev = 90.0
+                st.session_state.sl_study = 7.5
+                st.session_state.num_study = 7.5
+                st.rerun()
+        with p_c2:
+            if st.button("📘 Average Student", key="preset_avg", use_container_width=True, help="Load median cohort profile (78% Attendance, 68 Marks, 4.0 hrs study)"):
+                st.session_state.att_val = 78.0
+                st.session_state.prev_val = 68.0
+                st.session_state.study_val = 4.0
+                st.session_state.sl_att = 78.0
+                st.session_state.num_att = 78.0
+                st.session_state.sl_prev = 68.0
+                st.session_state.num_prev = 68.0
+                st.session_state.sl_study = 4.0
+                st.session_state.num_study = 4.0
+                st.rerun()
+        with p_c3:
+            if st.button("🚨 At-Risk Student", key="preset_risk", use_container_width=True, help="Load intervention profile (48% Attendance, 44 Marks, 1.5 hrs study)"):
+                st.session_state.att_val = 48.0
+                st.session_state.prev_val = 44.0
+                st.session_state.study_val = 1.5
+                st.session_state.sl_att = 48.0
+                st.session_state.num_att = 48.0
+                st.session_state.sl_prev = 44.0
+                st.session_state.num_prev = 44.0
+                st.session_state.sl_study = 1.5
+                st.session_state.num_study = 1.5
+                st.rerun()
+        
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
         # --- FIELD 1: Attendance Percentage (0–100) ---
         st.markdown(

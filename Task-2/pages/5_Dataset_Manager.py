@@ -78,6 +78,8 @@ with m1:
             value=f"{summary['total_records']:,}",
             subtitle="Full Cohort Volume",
             color="#4F46E5",
+            icon="👥",
+            badge_chip="Cohort",
         ),
         unsafe_allow_html=True,
     )
@@ -89,6 +91,8 @@ with m2:
             value=f"{summary['total_columns']}",
             subtitle="Features & Target Metrics",
             color="#06B6D4",
+            icon="📐",
+            badge_chip="Schema",
         ),
         unsafe_allow_html=True,
     )
@@ -100,6 +104,8 @@ with m3:
             value=f"{summary['missing_values']}",
             subtitle="Pre-Sanitization Nulls",
             color="#10B981" if summary['missing_values'] == 0 else "#F59E0B",
+            icon="🛡️",
+            badge_chip="Integrity",
         ),
         unsafe_allow_html=True,
     )
@@ -111,6 +117,8 @@ with m4:
             value=f"{summary['duplicate_rows']}",
             subtitle="Identical Row Deduplication",
             color="#10B981" if summary['duplicate_rows'] == 0 else "#EF4444",
+            icon="🔍",
+            badge_chip="Cleanliness",
         ),
         unsafe_allow_html=True,
     )

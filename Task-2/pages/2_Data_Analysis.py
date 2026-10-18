@@ -182,6 +182,8 @@ with c1:
             value=f"{kpis['total_students']:,}",
             subtitle="Filtered Sample Size",
             color="#4F46E5",
+            icon="👥",
+            badge_chip="Sample",
         ),
         unsafe_allow_html=True,
     )
@@ -193,6 +195,8 @@ with c2:
             value=f"{kpis['avg_attendance']:.1f}%",
             subtitle="Campus Presence Mean",
             color="#06B6D4",
+            icon="📅",
+            badge_chip="Presence",
         ),
         unsafe_allow_html=True,
     )
@@ -204,6 +208,8 @@ with c3:
             value=f"{kpis['avg_previous_marks']:.1f}",
             subtitle="Historical Score Average",
             color="#10B981",
+            icon="📝",
+            badge_chip="Historical",
         ),
         unsafe_allow_html=True,
     )
@@ -215,6 +221,8 @@ with c4:
             value=f"{kpis['avg_study_hours']:.1f} hrs",
             subtitle="Daily Study Dedication",
             color="#F59E0B",
+            icon="⏱️",
+            badge_chip="Dedication",
         ),
         unsafe_allow_html=True,
     )
@@ -226,6 +234,8 @@ with c5:
             value=f"{kpis['avg_final_score']:.1f}",
             subtitle="Exam Score Benchmark",
             color="#10B981",
+            icon="🎯",
+            badge_chip="Outcome",
         ),
         unsafe_allow_html=True,
     )
