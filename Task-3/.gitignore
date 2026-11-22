@@ -1,0 +1,31 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+venv/
+env/
+.env
+
+# Large Dataset Files (Raw & Processed)
+data/raw/*.csv
+data/raw/*.zip
+data/processed/*.csv
+data/processed/*.parquet
+
+# Model artifacts (whitelist lightweight champion model for cloud deployment)
+models/*.joblib
+models/*.pkl
+!models/fake_news_model.joblib
+
+# OS artifacts
+.DS_Store
+Thumbs.db
